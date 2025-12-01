@@ -3,8 +3,13 @@ package com.example.test_lab_week_12
 import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.RecyclerView
 import com.example.test_lab_week_12.model.Movie
+import com.example.test_lab_week_12.viewmodel.MovieViewModel
+import com.google.android.material.snackbar.Snackbar
+import java.util.Calendar
 
 class MainActivity : AppCompatActivity() {
     private val movieAdapter by lazy {
@@ -21,6 +26,39 @@ class MainActivity : AppCompatActivity() {
 
         val recyclerView: RecyclerView = findViewById(R.id.movie_list)
         recyclerView.adapter = movieAdapter
+
+        // Ambil repository dari Application
+        val movieRepository = (application as MovieApplication).movieRepository
+
+        // Buat ViewModel dengan Factory
+        val movieViewModel = ViewModelProvider(
+            this, object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    @Suppress("UNCHECKED_CAST")
+                    return MovieViewModel(movieRepository) as T
+                }
+            }
+        )[MovieViewModel::class.java]
+
+        // Observe movies dari ViewModel
+        movieViewModel.popularMovies.observe(this) { popularMovies ->
+            val currentYear = Calendar.getInstance().get(Calendar.YEAR).toString()
+            movieAdapter.addMovies(
+                popularMovies
+                    .filter { movie ->
+                        // Filter hanya movie tahun ini
+                        movie.releaseDate?.startsWith(currentYear) == true
+                    }
+                    .sortedByDescending { it.popularity }  // Sort by popularity
+            )
+        }
+
+        // Observe error dari ViewModel
+        movieViewModel.error.observe(this) { error ->
+            if (error.isNotEmpty()) {
+                Snackbar.make(recyclerView, error, Snackbar.LENGTH_LONG).show()
+            }
+        }
     }
 
     private fun openMovieDetails(movie: Movie) {
